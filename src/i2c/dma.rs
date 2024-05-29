@@ -623,7 +623,13 @@ where
         addr: u8,
         operations: &mut [Operation<'_>]
     ) -> Result<(), Self::Error> {
-        unimplemented!("This shouldn't be needed")
+        for operation in operations {
+            match operation {
+                Operation::Read(dest) => self.hal_i2c.read(addr, dest),
+                Operation::Write(data) => self.hal_i2c.write(addr, data)
+            }?;
+        }
+        Ok(())
     }
 }
 
