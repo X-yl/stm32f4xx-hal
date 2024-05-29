@@ -623,7 +623,7 @@ where
         addr: u8,
         operations: &mut [Operation<'_>]
     ) -> Result<(), Self::Error> {
-        panic!() // TODO: this bad. not do
+        unimplemented!("This shouldn't be needed")
     }
 }
 
