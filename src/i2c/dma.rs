@@ -1,13 +1,13 @@
 use core::{marker::PhantomData, mem::transmute};
 
 use super::{I2c, Instance};
-use crate::hal::i2c;
 use crate::dma::{
     config::DmaConfig,
     traits::{Channel, DMASet, DmaFlagExt, PeriAddress, Stream, StreamISR},
     ChannelX, MemoryToPeripheral, PeripheralToMemory, Transfer,
 };
-use crate::i2c::dma::i2c::{Operation, ErrorType};
+use crate::hal::i2c;
+use crate::i2c::dma::i2c::{ErrorType, Operation};
 use crate::ReadFlags;
 
 use nb;
@@ -621,9 +621,9 @@ where
     fn transaction(
         &mut self,
         addr: u8,
-        operations: &mut [Operation<'_>]
+        operations: &mut [Operation<'_>],
     ) -> Result<(), Self::Error> {
-        panic!() // TODO: this bad. not do
+        self.hal_i2c.transaction_slice(addr, operations)
     }
 }
 
