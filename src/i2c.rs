@@ -255,7 +255,16 @@ impl<I2C: Instance> I2c<I2C> {
         // It is possible that the STOP condition is still being generated
         // when we reach here, so we wait until it finishes before proceeding
         // to start a new transaction.
-        while self.i2c.cr1().read().stop().bit_is_set() {}
+        let mut retries = 0;
+        while self.i2c.cr1.read().stop().bit_is_set() {
+            retries += 1;
+            if retries > 10000 {
+                self.i2c.cr1.modify(|_, w| w.swrst().set_bit());
+                self.i2c.cr1.modify(|_, w| w.swrst().clear_bit());
+
+                return Err(Error::Timeout);
+            }
+        }
 
         // Clear all pending error bits
         self.i2c.sr1().write(|w| unsafe { w.bits(0) });
@@ -263,7 +272,16 @@ impl<I2C: Instance> I2c<I2C> {
         self.i2c.cr1().modify(|_, w| w.start().set_bit());
 
         // Wait until START condition was generated
-        while self.check_and_clear_error_flags()?.sb().bit_is_clear() {}
+        let mut retries = 0;
+        while self.check_and_clear_error_flags()?.sb().bit_is_clear() {
+            retries += 1;
+            if retries > 10000 {
+                self.i2c.cr1.modify(|_, w| w.swrst().set_bit());
+                self.i2c.cr1.modify(|_, w| w.swrst().clear_bit());
+
+                return Err(Error::Timeout);
+            }
+        }
 
         // Also wait until signalled we're master and everything is waiting for us
         loop {
@@ -318,7 +336,16 @@ impl<I2C: Instance> I2c<I2C> {
         // It is possible that the STOP condition is still being generated
         // when we reach here, so we wait until it finishes before proceeding
         // to start a new transaction.
-        while self.i2c.cr1().read().stop().bit_is_set() {}
+        let mut retries = 0;
+        while self.i2c.cr1.read().stop().bit_is_set() {
+            retries += 1;
+            if retries > 10000 {
+                self.i2c.cr1.modify(|_, w| w.swrst().set_bit());
+                self.i2c.cr1.modify(|_, w| w.swrst().clear_bit());
+
+                return Err(Error::Timeout);
+            }
+        }
 
         // Clear all pending error bits
         self.i2c.sr1().write(|w| unsafe { w.bits(0) });
@@ -328,13 +355,31 @@ impl<I2C: Instance> I2c<I2C> {
             .modify(|_, w| w.start().set_bit().ack().set_bit());
 
         // Wait until START condition was generated
-        while self.i2c.sr1().read().sb().bit_is_clear() {}
+        let mut retries = 0;
+        while self.i2c.sr1.read().sb().bit_is_clear() {
+            retries += 1;
+            if retries > 10000 {
+                self.i2c.cr1.modify(|_, w| w.swrst().set_bit());
+                self.i2c.cr1.modify(|_, w| w.swrst().clear_bit());
 
+                return Err(Error::Timeout);
+            }
+        }
+
+        let mut retries = 0;
         // Also wait until signalled we're master and everything is waiting for us
         while {
             let sr2 = self.i2c.sr2().read();
             sr2.msl().bit_is_clear() && sr2.busy().bit_is_clear()
-        } {}
+        } {
+            retries += 1;
+            if retries > 10000 {
+                self.i2c.cr1.modify(|_, w| w.swrst().set_bit());
+                self.i2c.cr1.modify(|_, w| w.swrst().clear_bit());
+
+                return Err(Error::Timeout);
+            }
+        }
 
         // Set up current address, we're trying to talk to
         match addr {
@@ -359,11 +404,19 @@ impl<I2C: Instance> I2c<I2C> {
         }
 
         // Wait until address was sent
+        let mut retries = 0;
         loop {
             self.check_and_clear_error_flags()
                 .map_err(Error::nack_addr)?;
             if self.i2c.sr1().read().addr().bit_is_set() {
                 break;
+            }
+            retries += 1;
+            if retries > 10000 {
+                self.i2c.cr1.modify(|_, w| w.swrst().set_bit());
+                self.i2c.cr1.modify(|_, w| w.swrst().clear_bit());
+
+                return Err(Error::Timeout);
             }
         }
 
@@ -386,29 +439,48 @@ impl<I2C: Instance> I2c<I2C> {
     fn send_byte(&self, byte: u8) -> Result<(), Error> {
         // Wait until we're ready for sending
         // Check for any I2C errors. If a NACK occurs, the ADDR bit will never be set.
+        let mut retries = 0;
         while self
             .check_and_clear_error_flags()
             .map_err(Error::nack_addr)?
             .tx_e()
             .bit_is_clear()
-        {}
+        {
+            retries += 1;
+            if retries > 10000 {
+                self.i2c.cr1.modify(|_, w| w.swrst().set_bit());
+                self.i2c.cr1.modify(|_, w| w.swrst().clear_bit());
+
+                return Err(Error::Timeout);
+            }
+        }
 
         // Push out a byte of data
         self.i2c.dr().write(|w| unsafe { w.bits(u16::from(byte)) });
 
         // Wait until byte is transferred
         // Check for any potential error conditions.
+        let mut retries = 0;
         while self
             .check_and_clear_error_flags()
             .map_err(Error::nack_data)?
             .btf()
             .bit_is_clear()
-        {}
+        {
+            retries += 1;
+            if retries > 10000 {
+                self.i2c.cr1.modify(|_, w| w.swrst().set_bit());
+                self.i2c.cr1.modify(|_, w| w.swrst().clear_bit());
+
+                return Err(Error::Timeout);
+            }
+        }
 
         Ok(())
     }
 
     fn recv_byte(&self) -> Result<u8, Error> {
+        let mut retries = 0;
         loop {
             // Check for any potential error conditions.
             self.check_and_clear_error_flags()
@@ -416,6 +488,13 @@ impl<I2C: Instance> I2c<I2C> {
 
             if self.i2c.sr1().read().rx_ne().bit_is_set() {
                 break;
+            }
+            retries += 1;
+            if retries > 10000 {
+                self.i2c.cr1.modify(|_, w| w.swrst().set_bit());
+                self.i2c.cr1.modify(|_, w| w.swrst().clear_bit());
+
+                return Err(Error::Timeout);
             }
         }
 
@@ -470,7 +549,16 @@ impl<I2C: Instance> I2c<I2C> {
             // operations through the DMA handle might thus encounter `WouldBlock`
             // error. Instead, we should make sure that the interface becomes idle
             // before returning.
-            while self.i2c.cr1().read().stop().bit_is_set() {}
+            let mut retries = 0;
+            while self.i2c.cr1.read().stop().bit_is_set() {
+                retries += 1;
+                if retries > 10000 {
+                    self.i2c.cr1.modify(|_, w| w.swrst().set_bit());
+                    self.i2c.cr1.modify(|_, w| w.swrst().clear_bit());
+
+                    return Err(Error::Timeout);
+                }
+            }
 
             // Fallthrough is success
             Ok(())
@@ -496,7 +584,16 @@ impl<I2C: Instance> I2c<I2C> {
         // operations through the DMA handle might thus encounter `WouldBlock`
         // error. Instead, we should make sure that the interface becomes idle
         // before returning.
-        while self.i2c.cr1().read().stop().bit_is_set() {}
+        let mut retries = 0;
+        while self.i2c.cr1.read().stop().bit_is_set() {
+            retries += 1;
+            if retries > 10000 {
+                self.i2c.cr1.modify(|_, w| w.swrst().set_bit());
+                self.i2c.cr1.modify(|_, w| w.swrst().clear_bit());
+
+                return Err(Error::Timeout);
+            }
+        }
 
         // Fallthrough is success
         Ok(())
@@ -517,7 +614,16 @@ impl<I2C: Instance> I2c<I2C> {
         // operations through the DMA handle might thus encounter `WouldBlock`
         // error. Instead, we should make sure that the interface becomes idle
         // before returning.
-        while self.i2c.cr1().read().stop().bit_is_set() {}
+        let mut retries = 0;
+        while self.i2c.cr1.read().stop().bit_is_set() {
+            retries += 1;
+            if retries > 10000 {
+                self.i2c.cr1.modify(|_, w| w.swrst().set_bit());
+                self.i2c.cr1.modify(|_, w| w.swrst().clear_bit());
+
+                return Err(Error::Timeout);
+            }
+        }
 
         // Fallthrough is success
         Ok(())
