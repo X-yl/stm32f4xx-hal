@@ -10,6 +10,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
  - Add `rcc::Instance` trait
  - Use `cfg_select` macro
 
+### Fixed
+
+ - Fix `rcc` module-level doc example to use current `Config/freeze` API [#876]
+
 ### Changed
 
  - `Serial` implements `Write<WORD>` and `Read<WORD>` for `WORD` simultaneously as `u8` and `u16`
@@ -47,6 +51,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 [#839]: https://github.com/stm32-rs/stm32f4xx-hal/pull/839
 [#841]: https://github.com/stm32-rs/stm32f4xx-hal/pull/841
 [#859]: https://github.com/stm32-rs/stm32f4xx-hal/pull/859
+[#876]: https://github.com/stm32-rs/stm32f4xx-hal/pull/876
 
 ## [v0.22.1] - 2024-11-03
 
