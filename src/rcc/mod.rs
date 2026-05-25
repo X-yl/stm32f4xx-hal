@@ -4,19 +4,19 @@
 //!
 //! # Example
 //!
-//! ```
+//! ```rust,ignore
+//! use stm32f4xx_hal::{pac, prelude::*, rcc::Config};
+//!
 //! let dp = pac::Peripherals::take().unwrap();
-//! let rcc = dp.RCC.constrain();
-//! let clocks = rcc
-//!     .cfgr
-//!     .use_hse(8.MHz())
-//!     .sysclk(168.MHz())
-//!     .pclk1(24.MHz())
-//!     .i2s_clk(86.MHz())
-//!     .require_pll48clk()
-//!     .freeze();
-//!     // Test that the I2S clock is suitable for 48000kHz audio.
-//!     assert!(clocks.i2s_clk().unwrap() == 48.MHz().into());
+//! let rcc = dp.RCC.freeze(
+//!     Config::hse(8.MHz())
+//!         .sysclk(168.MHz())
+//!         .pclk1(24.MHz())
+//!         .i2s_clk(86.MHz())
+//!         .require_pll48clk(),
+//! );
+//! // Test that the I2S clock is suitable for 48000kHz audio.
+//! assert!(rcc.clocks.i2s_clk().unwrap() == 48.MHz().into());
 //! ```
 //!
 //! # Limitations
